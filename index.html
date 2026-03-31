@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mindset - Emotion-Adaptive Study Assistant</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Feather Icons (Lightweight SVG icons) -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body data-emotion="neutral">
+    
+    <!-- Top Header -->
+    <header id="main-header">
+        <div class="user-greeting">
+            <h1 id="greeting-text">Good evening, Umesh</h1>
+            <div class="emotion-status">
+                <i data-feather="smile" class="emotion-icon"></i>
+                <span class="emotion-label">Feeling Neutral</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <!-- Simulated Debug Panel for prototype navigation -->
+            <div class="debug-panel" title="Simulate Emotion Triggers">
+                <button onclick="setEmotion('neutral')" class="active" data-trigger="neutral">Neutral</button>
+                <button onclick="setEmotion('confused')" data-trigger="confused">Confused</button>
+                <button onclick="setEmotion('frustrated')" data-trigger="frustrated">Frustrated</button>
+                <button onclick="setEmotion('focused')" data-trigger="focused" class="btn-focus">Focused</button>
+                <button onclick="setEmotion('bored')" data-trigger="bored">Bored</button>
+            </div>
+
+            <button class="icon-btn focus-hide"><i data-feather="search"></i></button>
+            <button class="icon-btn focus-hide"><i data-feather="bell"></i></button>
+            <div class="avatar focus-hide">U</div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-container">
+        <!-- SCREEN 1: Study Dashboard / Home (Neutral) -->
+        <section id="screen-dashboard" class="screen active">
+            <div class="grid-container">
+                <div class="card continue-studying elevate-hover">
+                    <div class="card-icon"><i data-feather="play"></i></div>
+                    <h2>Continue Studying</h2>
+                    <p>Resume "Backpropagation Algorithms" where you left off 2 hours ago.</p>
+                    <button class="text-btn">Start Session <i data-feather="chevron-right"></i></button>
+                </div>
+                
+                <div class="card today-goals elevate-hover">
+                    <div class="card-icon success"><i data-feather="check-circle"></i></div>
+                    <h2>Today's Goals</h2>
+                    <p>You've completed 2 of 4 tasks today. Great progress!</p>
+                    <button class="text-btn success">View Checklist <i data-feather="chevron-right"></i></button>
+                </div>
+                
+                <div class="card current-subject elevate-hover">
+                    <div class="progress-ring-container">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle class="ring-bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="ring-fill" cx="60" cy="60" r="50"></circle>
+                        </svg>
+                        <div class="progress-text">
+                            <strong>75%</strong>
+                            <span>DAILY GOAL</span>
+                        </div>
+                    </div>
+                    <h3>Philosophy of Mind</h3>
+                    <p>Reading: Qualia & Consciousness</p>
+                    <button class="primary-btn w-100">Continue</button>
+                </div>
+
+                <div class="card emotion-insights grid-span-2 elevate-hover">
+                    <h4>Emotion Insights</h4>
+                    <p class="subtitle">Summary from last 24 hours</p>
+                    <div class="insights-stats">
+                        <div class="stat">
+                            <span>DEEP FOCUS</span>
+                            <strong>4.2 hrs</strong>
+                        </div>
+                        <div class="stat">
+                            <span>MOST BORED AT</span>
+                            <strong class="text-purple">3:30 PM</strong>
+                        </div>
+                        <div class="stat">
+                            <span>REST QUALITY</span>
+                            <strong class="text-teal">High</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card upcoming-sessions elevate-hover">
+                    <h4>Upcoming Sessions</h4>
+                    <ul class="session-list">
+                        <li>
+                            <div class="session-color confused"></div>
+                            <div class="session-info">
+                                <strong>ML Study Group</strong>
+                                <span>10:00 AM</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="session-color secondary"></div>
+                            <div class="session-info">
+                                <strong>Office Hours</strong>
+                                <span>02:00 PM</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="session-color primary"></div>
+                            <div class="session-info">
+                                <strong>Final Exam Prep</strong>
+                                <span>05:00 PM</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: Confusion Detected -->
+        <section id="screen-confusion" class="screen">
+            <div class="split-layout">
+                <div class="hints-panel">
+                    <div class="tag confused-tag"><i data-feather="info"></i> CONFUSION DETECTED</div>
+                    <h2>Looks like you're stuck on this concept. Need a hint?</h2>
+                    
+                    <div class="accordion-list mt-4">
+                        <div class="accordion-item" onclick="toggleHint(this)">
+                            <div class="accordion-header">
+                                <span>1. Re-examine the basic formula</span>
+                                <i data-feather="chevron-right"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <p>Recall that the derivative of x^n is n*x^(n-1). Apply this to the first term.</p>
+                            </div>
+                        </div>
+                        <div class="accordion-item" onclick="toggleHint(this)">
+                            <div class="accordion-header">
+                                <span>2. Visualise the derivative as a slope</span>
+                                <i data-feather="chevron-right"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <p>Imagine a tangent line touching the curve at exactly one point. The slope of this line is your result.</p>
+                            </div>
+                        </div>
+                        <div class="accordion-item" onclick="toggleHint(this)">
+                            <div class="accordion-header">
+                                <span>3. See a real-world example</span>
+                                <i data-feather="chevron-right"></i>
+                            </div>
+                            <div class="accordion-content">
+                                <p>If position is x^2, velocity (the derivative) is 2x. Think about how speed increases linearly over time.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons mt-4">
+                        <button class="primary-btn">Ask AI Tutor</button>
+                        <button class="outline-btn" onclick="setEmotion('neutral')">Try Again Later</button>
+                    </div>
+                </div>
+                <div class="concept-map-panel card elevate-hover">
+                    <div class="card-header">
+                        <h3>Concept Map</h3>
+                        <button class="icon-btn"><i data-feather="refresh-cw"></i></button>
+                    </div>
+                    <div class="concept-visual">
+                        <!-- Mock Map -->
+                        <div class="map-node node-center">Derivatives</div>
+                        <div class="map-node node-1">Limits</div>
+                        <div class="map-node node-2 active-confused">Slopes</div>
+                        <div class="map-node node-3">Integrals</div>
+                        
+                        <div class="map-line line-1"></div>
+                        <div class="map-line line-2"></div>
+                        <div class="map-line line-3"></div>
+                        <div class="map-line line-4"></div>
+                    </div>
+                    <p class="text-center subtitle mt-2">Click nodes to explore connections</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: Frustration Detected -->
+        <section id="screen-frustration" class="screen">
+            <div class="calm-container">
+                <div class="calm-content">
+                    <i data-feather="frown" class="frustrated-icon"></i>
+                    <h2>Take a breath.</h2>
+                    <p>You've been working hard. Let's reset for a moment.</p>
+                    
+                    <div class="breathing-circle-wrapper">
+                        <div class="breathing-circle">
+                            <div class="inner-circle"></div>
+                        </div>
+                        <p class="breathing-instruction">INHALE ... EXHALE</p>
+                    </div>
+
+                    <div class="break-options">
+                        <button class="card-btn elevate-hover">
+                            <i data-feather="clock" class="text-teal"></i>
+                            <span>5-min break</span>
+                        </button>
+                        <button class="card-btn elevate-hover">
+                            <i data-feather="refresh-ccw" class="text-teal"></i>
+                            <span>Switch Topic</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="resume-footer">
+                    <button class="text-btn" onclick="setEmotion('neutral')">Resume study anytime</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 4: Focused State -->
+        <section id="screen-focused" class="screen">
+            <div class="focused-study-container">
+                <div class="study-content">
+                    <h2 class="mono-font text-muted mb-2">CHAPTER 4: NEURAL NETWORKS</h2>
+                    <h1 class="mb-4">The Backpropagation Algorithm</h1>
+                    <div class="focus-text">
+                        <p>Backpropagation is the essence of neural net training. It is the practice of fine-tuning the weights of a neural net based on the error rate (i.e., loss) obtained in the previous epoch (i.e., iteration). Proper tuning of the weights guarantees lower error rates, making the model reliable by increasing its generalization capability.</p>
+                        <p>The goals of backpropagation are straightforward:</p>
+                        <ul>
+                            <li>Calculate the gradient of the loss function with respect to the weights.</li>
+                            <li>Update the weights using gradient descent or a related optimization algorithm.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Minimal UI Overlays for Focus Mode -->
+            <div class="focus-timer">
+                <div class="timer-display">24:59</div>
+                <button class="icon-btn tiny"><i data-feather="pause"></i></button>
+            </div>
+            
+            <div class="ambient-toggle">
+                <button class="icon-btn tiny"><i data-feather="headphones"></i></button>
+            </div>
+        </section>
+
+        <!-- SCREEN 5: Boredom Detected -->
+        <section id="screen-boredom" class="screen">
+            <div class="gamified-container">
+                <div class="gamified-header">
+                    <div>
+                        <h2>Time for a Quick Challenge?</h2>
+                        <p>Boost your energy with a 2-minute quiz!</p>
+                    </div>
+                    <div class="xp-stats">
+                        <div class="streak">
+                            <span class="fire">🔥</span>
+                            <div>
+                                <small>CURRENT STREAK</small>
+                                <strong>12 Days</strong>
+                            </div>
+                        </div>
+                        <div class="xp-ring">
+                            <svg width="80" height="80">
+                                <circle class="ring-bg" cx="40" cy="40" r="36"></circle>
+                                <circle class="ring-fill bored-ring" cx="40" cy="40" r="36"></circle>
+                            </svg>
+                            <div class="xp-text">
+                                <strong>XP</strong>
+                                <span>420/1000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="split-layout gamified-layout mt-4">
+                    <div class="quiz-card card">
+                        <div class="tag bored-tag mb-3">QUESTION 1 OF 5</div>
+                        <h3>What is the primary difference between a CNN and a standard MLP?</h3>
+                        
+                        <div class="quiz-options mt-3">
+                            <button class="quiz-option" onclick="selectQuizOption(this)">MLPs use pooling layers while CNNs don't <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this)">CNNs maintain spatial hierarchy of data <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this)">CNNs are only for text processing <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this)">MLPs are faster but less accurate <div class="radio"></div></button>
+                        </div>
+                    </div>
+                    
+                    <div class="badges-panel card">
+                        <h4>Recent Badges</h4>
+                        <div class="badge-grid">
+                            <div class="badge-item">
+                                <div class="badge-icon b-primary"><i data-feather="zap"></i></div>
+                                <span>Speed Demon</span>
+                            </div>
+                            <div class="badge-item">
+                                <div class="badge-icon b-purple"><i data-feather="moon"></i></div>
+                                <span>Late Owl</span>
+                            </div>
+                            <div class="badge-item">
+                                <div class="badge-icon b-confused"><i data-feather="brain"></i></div>
+                                <span>Deep Thinker</span>
+                            </div>
+                            <div class="badge-item">
+                                <div class="badge-icon b-teal"><i data-feather="award"></i></div>
+                                <span>Quiz King</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 6: Analytics -->
+        <section id="screen-analytics" class="screen">
+            <div class="analytics-header mb-4">
+                <h2>Emotion & Performance Insights</h2>
+                <div class="controls">
+                    <select class="outline-btn"><option>Last 7 Days</option></select>
+                    <button class="outline-btn"><i data-feather="download"></i> Export</button>
+                </div>
+            </div>
+            
+            <div class="grid-container">
+                <div class="card grid-span-2">
+                    <div class="card-header mb-3">
+                        <h3>Focus Timeline</h3>
+                    </div>
+                    <!-- Mock Chart via CSS Grid for simplicity & lightness -->
+                    <div class="mock-chart">
+                        <div class="chart-y-axis">
+                            <span>100%</span>
+                            <span>50%</span>
+                            <span>0%</span>
+                        </div>
+                        <div class="chart-bars">
+                            <div class="bar-col"><div class="bar h-60 primary-bg"></div><span>Mon</span></div>
+                            <div class="bar-col"><div class="bar h-80 primary-bg"></div><span>Tue</span></div>
+                            <div class="bar-col"><div class="bar h-40 confused-bg"></div><span>Wed</span></div>
+                            <div class="bar-col"><div class="bar h-90 primary-bg"></div><span>Thu</span></div>
+                            <div class="bar-col"><div class="bar h-30 frustrated-bg"></div><span>Fri</span></div>
+                            <div class="bar-col"><div class="bar h-70 primary-bg"></div><span>Sat</span></div>
+                            <div class="bar-col"><div class="bar h-100 teal-bg"></div><span>Sun</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card elevate-hover insight-card">
+                    <div class="card-icon secondary mb-2"><i data-feather="trending-up"></i></div>
+                    <h3>Peak Focus Time</h3>
+                    <p class="insight-text">You focus best between <strong>7 PM – 9 PM</strong>. Try scheduling complex topics then.</p>
+                </div>
+                
+                <div class="card elevate-hover insight-card">
+                    <div class="card-icon confused mb-2"><i data-feather="alert-circle"></i></div>
+                    <h3>Confusion Triggers</h3>
+                    <p class="insight-text">"Advanced Calculus" triggers the most confusion hints. Consider a review session.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 7: Settings -->
+        <section id="screen-settings" class="screen">
+            <div class="settings-container">
+                <div class="settings-header mb-4">
+                    <h2>Settings & Privacy</h2>
+                    <p>Control how Mindset interacts with you and your data.</p>
+                </div>
+                
+                <div class="settings-group card mb-4">
+                    <div class="settings-title"><i data-feather="eye" class="primary-text"></i> Emotion Detection</div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h4>Webcam Analysis</h4>
+                            <p>Real-time facial expression tracking for adaptive response.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h4>Eye Tracking</h4>
+                            <p>Determines which parts of the screen cause the most confusion.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-group card">
+                    <div class="settings-title"><i data-feather="shield" class="primary-text"></i> Data & Ethics</div>
+                    
+                    <div class="setting-row info-row">
+                        <i data-feather="lock"></i>
+                        <div class="setting-info">
+                            <h4>Local Data Processing</h4>
+                            <p>Emotion data is processed on-device and never sent to our servers.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row expandable" onclick="toggleSettingsExpand(this)">
+                        <div class="header">
+                            <i data-feather="refresh-cw"></i>
+                            <div class="setting-info">
+                                <h4>Data Retention Policy</h4>
+                                <p>Your history is kept for 30 days. <span class="primary-text pointer">Read more</span></p>
+                            </div>
+                        </div>
+                        <div class="expanded-content">
+                            <p>To provide accurate insights, we process timeline analytics locally. Aggregated metadata without personal identifiers may be used to improve the detection models, but you can opt out.</p>
+                        </div>
+                    </div>
+
+                    <div class="setting-row align-center mt-3">
+                         <button class="danger-btn outline" onclick="confirmDelete()">Delete All Analytics Data</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Mockup -->
+            <div id="delete-modal" class="modal">
+                <div class="modal-content card">
+                    <h3>Delete Data?</h3>
+                    <p>This action cannot be undone. All your emotion history will be cleared.</p>
+                    <div class="action-buttons mt-3 justify-end">
+                        <button class="text-btn" onclick="document.getElementById('delete-modal').classList.remove('active')">Cancel</button>
+                        <button class="danger-btn" onclick="document.getElementById('delete-modal').classList.remove('active')">Yes, Delete</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav id="bottom-nav" class="focus-hide">
+        <button class="nav-item active" onclick="navigateTo('dashboard')">
+            <i data-feather="home"></i>
+            <span>Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="navigateTo('focused')">
+            <i data-feather="maximize"></i>
+            <span>Focus Mode</span>
+        </button>
+        <button class="nav-item" onclick="navigateTo('analytics')">
+            <i data-feather="bar-chart-2"></i>
+            <span>Insights</span>
+        </button>
+        <button class="nav-item" onclick="navigateTo('settings')">
+            <i data-feather="settings"></i>
+            <span>Settings</span>
+        </button>
+    </nav>
+
+    <script src="app.js"></script>
+</body>
+</html>
