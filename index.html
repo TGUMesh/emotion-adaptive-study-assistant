@@ -18,7 +18,7 @@
 <body data-emotion="neutral">
     
     <!-- Top Header -->
-    <header id="main-header">
+    <header id="main-header" style="display: none;">
         <div class="user-greeting">
             <h1 id="greeting-text">Good evening, Umesh</h1>
             <div class="emotion-status">
@@ -36,6 +36,9 @@
                 <button onclick="setEmotion('bored')" data-trigger="bored">Bored</button>
             </div>
 
+            <button class="icon-btn focus-hide" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Dark Mode">
+                <i data-feather="moon" id="theme-icon"></i>
+            </button>
             <button class="icon-btn focus-hide"><i data-feather="search"></i></button>
             <button class="icon-btn focus-hide"><i data-feather="bell"></i></button>
             <div class="avatar focus-hide">U</div>
@@ -44,8 +47,45 @@
 
     <!-- Main Content Area -->
     <main id="app-container">
+        
+        <!-- SCREEN 0: Login -->
+        <section id="screen-login" class="screen active login-screen">
+            <div class="login-container card elevate-hover">
+                <div class="login-header">
+                    <div class="logo-icon"><i data-feather="monitor"></i></div>
+                    <h2>Welcome to Mindset</h2>
+                    <p>Your emotionally adaptive study assistant.</p>
+                </div>
+                
+                <form class="login-form" onsubmit="performLogin(event)">
+                    <div class="input-group">
+                        <label for="username-input">Student Name</label>
+                        <div class="input-wrapper">
+                            <i data-feather="user"></i>
+                            <input type="text" id="username-input" placeholder="e.g. Umesh" required>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="password-input">Password</label>
+                        <div class="input-wrapper">
+                            <i data-feather="lock"></i>
+                            <input type="password" id="password-input" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="primary-btn w-100 login-btn">
+                        <span>Sign In</span>
+                        <i data-feather="arrow-right"></i>
+                    </button>
+                    
+                    <p class="demo-text mt-3 text-center text-muted"><small>Prototype Mode: Use any credentials to enter</small></p>
+                </form>
+            </div>
+        </section>
+
         <!-- SCREEN 1: Study Dashboard / Home (Neutral) -->
-        <section id="screen-dashboard" class="screen active">
+        <section id="screen-dashboard" class="screen">
             <div class="grid-container">
                 <div class="card continue-studying elevate-hover">
                     <div class="card-icon"><i data-feather="play"></i></div>
@@ -57,8 +97,8 @@
                 <div class="card today-goals elevate-hover">
                     <div class="card-icon success"><i data-feather="check-circle"></i></div>
                     <h2>Today's Goals</h2>
-                    <p>You've completed 2 of 4 tasks today. Great progress!</p>
-                    <button class="text-btn success">View Checklist <i data-feather="chevron-right"></i></button>
+                    <p id="dashboard-todo-progress">You've completed 2 of 4 tasks today. Great progress!</p>
+                    <button class="text-btn success" onclick="navigateTo('todo')">View Checklist <i data-feather="chevron-right"></i></button>
                 </div>
                 
                 <div class="card current-subject elevate-hover">
@@ -164,7 +204,7 @@
                     
                     <div class="action-buttons mt-4">
                         <button class="primary-btn">Ask AI Tutor</button>
-                        <button class="outline-btn" onclick="setEmotion('neutral')">Try Again Later</button>
+                        <button class="outline-btn" onclick="ignoreEmotion()">Try Again Later</button>
                     </div>
                 </div>
                 <div class="concept-map-panel card elevate-hover">
@@ -216,7 +256,7 @@
                     </div>
                 </div>
                 <div class="resume-footer">
-                    <button class="text-btn" onclick="setEmotion('neutral')">Resume study anytime</button>
+                    <button class="text-btn" onclick="ignoreEmotion()">Resume study anytime</button>
                 </div>
             </div>
         </section>
@@ -240,8 +280,8 @@
             
             <!-- Minimal UI Overlays for Focus Mode -->
             <div class="focus-timer">
-                <div class="timer-display">24:59</div>
-                <button class="icon-btn tiny"><i data-feather="pause"></i></button>
+                <div class="timer-display" id="focus-timer-display">25:00</div>
+                <button class="icon-btn tiny" id="focus-pause-btn" onclick="toggleTimer()"><i data-feather="pause"></i></button>
             </div>
             
             <div class="ambient-toggle">
@@ -256,6 +296,7 @@
                     <div>
                         <h2>Time for a Quick Challenge?</h2>
                         <p>Boost your energy with a 2-minute quiz!</p>
+                        <button class="text-btn mt-2" onclick="ignoreEmotion()">No thanks, resume reading</button>
                     </div>
                     <div class="xp-stats">
                         <div class="streak">
@@ -381,7 +422,7 @@
                             <p>Real-time facial expression tracking for adaptive response.</p>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" checked>
+                            <input type="checkbox" id="webcam-toggle" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
@@ -440,10 +481,43 @@
                 </div>
             </div>
         </section>
+
+        <!-- SCREEN 8: Todo List -->
+        <section id="screen-todo" class="screen">
+            <div class="todo-wrapper card elevate-hover">
+                <div class="todo-header flex-between mb-4">
+                    <div>
+                        <h2 style="display:flex; align-items:center; gap: 8px;"><i data-feather="check-square" class="primary-text"></i> Today's Goals</h2>
+                        <p>Track your study tasks</p>
+                    </div>
+                    <button class="icon-btn" onclick="navigateTo('dashboard')" title="Close"><i data-feather="x"></i></button>
+                </div>
+                
+                <form class="add-todo-form mb-4" onsubmit="addTodo(event)">
+                    <div class="input-wrapper">
+                        <input type="text" id="new-todo-input" placeholder="Add a new study task..." required>
+                        <button type="submit" class="primary-btn shrink-0">Add</button>
+                    </div>
+                </form>
+
+                <ul id="todo-list-container" class="todo-list">
+                    <!-- JS renders here -->
+                </ul>
+            </div>
+        </section>
     </main>
 
+    <!-- Webcam PIP -->
+    <div id="webcam-container" class="webcam-pip">
+        <video id="webcam-video" autoplay muted playsinline></video>
+        <div id="webcam-status">Starting Webcam...</div>
+    </div>
+    
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Bottom Navigation -->
-    <nav id="bottom-nav" class="focus-hide">
+    <nav id="bottom-nav" class="focus-hide" style="display: none;">
         <button class="nav-item active" onclick="navigateTo('dashboard')">
             <i data-feather="home"></i>
             <span>Dashboard</span>
@@ -462,6 +536,8 @@
         </button>
     </nav>
 
+    <!-- face-api.js for emotion detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

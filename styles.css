@@ -787,3 +787,285 @@ input:checked + .slider:before { transform: translateX(20px); }
 .modal-content { max-width: 400px; width: 90%; transform: scale(0.95); transition: transform var(--transition-fast); }
 .modal.active .modal-content { transform: scale(1); }
 .justify-end { justify-content: flex-end; display: flex; gap: 12px;}
+
+/* Webcam PIP */
+.webcam-pip {
+    position: fixed;
+    bottom: 100px;
+    right: 40px;
+    width: 240px;
+    height: 180px;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    z-index: 50;
+    display: none;
+    transition: opacity var(--transition-smooth);
+}
+.webcam-pip.active {
+    display: block;
+    animation: fadeIn var(--transition-fast);
+}
+#webcam-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1); /* mirror */
+}
+#webcam-status {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    z-index: 2;
+}
+
+/* =========================================
+   LOGIN SCREEN
+   ========================================= */
+#screen-login {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    margin: 0; padding: 0; 
+    align-items: center;
+    justify-content: center;
+    background: var(--background);
+    z-index: 200;
+}
+#screen-login.active {
+    display: flex; /* override default absolute positioning flow or augment it */
+}
+
+.login-container {
+    max-width: 440px;
+    width: 100%;
+    padding: 48px 40px;
+    animation: fadeIn var(--transition-smooth);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+.login-header h2 { font-size: 28px; margin-bottom: 8px;}
+.logo-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 16px;
+    background: var(--primary);
+    color: white;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 16px rgba(31,60,136,0.2);
+}
+.logo-icon svg { width: 28px; height: 28px; }
+
+.input-group { margin-bottom: 20px; }
+.input-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.input-wrapper svg {
+    position: absolute;
+    left: 16px;
+    color: var(--text-muted);
+    width: 18px; height: 18px;
+}
+.input-wrapper input {
+    width: 100%;
+    padding: 14px 16px 14px 44px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all var(--transition-fast);
+    background: var(--background);
+}
+.input-wrapper input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(31,60,136,0.1);
+    background: white;
+}
+
+.login-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    font-size: 16px;
+}
+
+/* =========================================
+   TODO SCREEN
+   ========================================= */
+.todo-wrapper {
+    max-width: 600px;
+    margin: 40px auto 0;
+    min-height: 500px;
+    padding: 32px 40px;
+}
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.add-todo-form .input-wrapper {
+    display: flex;
+    gap: 12px;
+}
+.add-todo-form input {
+    flex: 1;
+    padding-left: 20px !important; /* Override standard wrapper icon spacing since no icon here */
+}
+.shrink-0 { flex-shrink: 0; padding: 12px 24px; border-radius: 12px;}
+
+.todo-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.todo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    transition: all var(--transition-fast);
+}
+.todo-item:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+.todo-item.completed {
+    background: #f8fafc;
+    opacity: 0.7;
+}
+.todo-item.completed .todo-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.todo-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    flex: 1;
+}
+.todo-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all var(--transition-fast);
+}
+.todo-item.completed .todo-checkbox {
+    background: var(--secondary);
+    border-color: var(--secondary);
+    color: white;
+}
+.todo-text {
+    font-size: 16px;
+    font-weight: 500;
+}
+.delete-todo-btn {
+    color: var(--frustrated);
+    opacity: 0;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+}
+.todo-item:hover .delete-todo-btn {
+    opacity: 1;
+}
+.delete-todo-btn:hover {
+    background: rgba(231, 111, 81, 0.1);
+}
+
+/* =========================================
+   DARK THEME OVERRIDES
+   ========================================= */
+body.dark-theme {
+    --background: #121212;
+    --surface: #1E1E1E;
+    --text-primary: #E2E8F0;
+    --text-muted: #A0AEC0;
+    --border: #2D3748;
+    --primary: #63b3ed; /* Lighter blue for dark mode */
+}
+
+body.dark-theme .login-container, body.dark-theme .card, body.dark-theme .todo-item { background: var(--surface); }
+body.dark-theme .todo-item.completed { background: #1A202C; }
+body.dark-theme .input-wrapper input { background: #2D3748; color: white; }
+body.dark-theme #screen-login { background: #121212; }
+body.dark-theme #bottom-nav { background: var(--surface); border: 1px solid var(--border); }
+body.dark-theme .map-node { background: var(--surface); color: var(--text-primary); }
+body.dark-theme .accordion-item { background: var(--surface); border-color: var(--border); }
+body.dark-theme .accordion-content { background: #1A202C; }
+body.dark-theme .focus-timer { background: var(--surface); border-color: var(--border); }
+
+
+/* =========================================
+   TOAST NOTIFICATIONS
+   ========================================= */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 250px;
+    max-width: 350px;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.toast.show { transform: translateX(0); }
+.toast-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.toast-success .toast-icon { color: var(--secondary); background: rgba(46,196,182,0.1); }
+.toast-info .toast-icon { color: var(--primary); background: rgba(99,179,237,0.1); }
+.toast-content h4 { font-size: 14px; margin: 0 0 4px; color: var(--text-primary); }
+.toast-content p { font-size: 12px; margin: 0; color: var(--text-muted); }

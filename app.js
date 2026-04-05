@@ -1,10 +1,189 @@
-// Initialize Feather Icons
-document.addEventListener("DOMContentLoaded", () => {
+// Emotion Analysis State
+let webcamActive = true;
+let isAuthenticated = false;
+let emotionDetectionInterval = null;
+let currentEmotionBuffer = [];
+const BUFFER_SIZE = 6; // 6 frames at 500ms = 3 seconds
+let emotionCooldown = 0; // Timestamp to pause tracking
+
+// Initialize Feather Icons & Face API
+document.addEventListener("DOMContentLoaded", async () => {
     feather.replace();
     
-    // Set initial state
-    setEmotion('neutral');
+    // Bind webcam toggle
+    const toggle = document.getElementById('webcam-toggle');
+    if (toggle) {
+        toggle.addEventListener('change', (e) => {
+            webcamActive = e.target.checked;
+            if (webcamActive && isAuthenticated) {
+                startWebcam();
+            } else {
+                stopWebcam();
+            }
+        });
+    }
+
+    // Load Face API Models in background
+    try {
+        await loadFaceApiModels();
+        if (webcamActive && isAuthenticated) startWebcam();
+    } catch (err) {
+        console.error("Face API Error:", err);
+        updateWebcamStatus("Model Load Failed");
+    }
 });
+
+// LOGIN LOGIC
+function performLogin(event) {
+    event.preventDefault(); // Stop form reload
+    
+    const usernameInput = document.getElementById('username-input');
+    const name = usernameInput && usernameInput.value ? usernameInput.value : "Student";
+    
+    // 1. Update the Header Name dynamically
+    const greetingEl = document.getElementById('greeting-text');
+    if (greetingEl) {
+        greetingEl.textContent = `Good evening, ${name}`;
+    }
+    
+    // 2. Unhide navigation elements
+    document.getElementById('main-header').style.display = 'flex';
+    document.getElementById('bottom-nav').style.display = 'flex';
+    
+    // 3. Set Authenticated state
+    isAuthenticated = true;
+    
+    // 4. Trigger the usual initialization routines (hides login screen, routes to dashboard)
+    renderTodos();
+    document.body.dataset.emotion = 'login'; // Reset to force the neutral transition
+    setEmotion('neutral');
+    showToast('Welcome Back!', 'Your study dashboard is ready.', 'success');
+    
+    // 5. Start models if they finished loading
+    if (webcamActive && document.getElementById('webcam-status').textContent === "Ready") {
+        startWebcam();
+    }
+}
+
+async function loadFaceApiModels() {
+    updateWebcamStatus("Loading High-Accuracy Models...");
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+    updateWebcamStatus("Ready");
+}
+
+async function startWebcam() {
+    const video = document.getElementById('webcam-video');
+    const container = document.getElementById('webcam-container');
+    if (!video) return;
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        container.classList.add('active');
+        
+        video.addEventListener('play', () => {
+            if (emotionDetectionInterval) clearInterval(emotionDetectionInterval);
+            emotionDetectionInterval = setInterval(detectEmotion, 500);
+        });
+        updateWebcamStatus("Monitoring...");
+    } catch (err) {
+        console.error("Webcam Error:", err);
+        updateWebcamStatus("Camera Access Denied");
+    }
+}
+
+function stopWebcam() {
+    const video = document.getElementById('webcam-video');
+    const container = document.getElementById('webcam-container');
+    if (emotionDetectionInterval) {
+        clearInterval(emotionDetectionInterval);
+        emotionDetectionInterval = null;
+    }
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+    if (container) container.classList.remove('active');
+}
+
+function updateWebcamStatus(status) {
+    const el = document.getElementById('webcam-status');
+    if (el) el.textContent = status;
+}
+
+async function detectEmotion() {
+    if (Date.now() < emotionCooldown) {
+        updateWebcamStatus("Paused (Cooldown)");
+        return;
+    }
+
+    const video = document.getElementById('webcam-video');
+    if (!video || video.paused || video.ended) return;
+
+    // Use SsdMobilenetv1Options for higher accuracy instead of TinyFaceDetector
+    const detection = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options()).withFaceExpressions();
+    
+    if (detection) {
+        const expressions = detection.expressions;
+        let highestProp = 0;
+        let emotion = 'neutral';
+        for (const [key, val] of Object.entries(expressions)) {
+            if (val > highestProp) {
+                highestProp = val;
+                emotion = key;
+            }
+        }
+        
+        let mappedEmotion = 'neutral';
+        
+        // Confidence Threshold: Require at least 60% confidence
+        if (highestProp >= 0.6) {
+            if (emotion === 'angry' || emotion === 'disgusted') mappedEmotion = 'frustrated';
+            else if (emotion === 'surprised') mappedEmotion = 'confused';
+            else if (emotion === 'sad') mappedEmotion = 'bored';
+            else if (emotion === 'happy') mappedEmotion = 'focused'; 
+        }
+
+        recordEmotion(mappedEmotion);
+    } else {
+        updateWebcamStatus("No Face Detected");
+        currentEmotionBuffer = []; // Reset buffer if no face
+    }
+}
+
+function recordEmotion(emotion) {
+    currentEmotionBuffer.push(emotion);
+    if (currentEmotionBuffer.length > BUFFER_SIZE) {
+        currentEmotionBuffer.shift();
+    }
+    
+    if (currentEmotionBuffer.length === BUFFER_SIZE) {
+        // Require 5 out of 6 consecutive frames to be identical to account for minor API flickering
+        const count = currentEmotionBuffer.filter(e => e === emotion).length;
+        if (count >= 5) {
+            updateWebcamStatus(`Detected: ${emotion}`);
+            
+            if (document.body.dataset.emotion !== emotion) {
+                setEmotion(emotion);
+            }
+        } else {
+            updateWebcamStatus(`Monitoring...`);
+        }
+    }
+}
+
+// User ignores the suggestion and continues reading
+function ignoreEmotion() {
+    // 30 Seconds cooldown to prevent re-triggering immediately
+    emotionCooldown = Date.now() + 30000;
+    
+    // Clear buffer and return to neutral dashboard
+    currentEmotionBuffer = [];
+    setEmotion('neutral');
+    updateWebcamStatus("Paused for 30s");
+}
 
 /**
  * Screen Navigation Map based on Emotion
@@ -35,12 +214,24 @@ const emotionIcons = {
 
 /**
  * Handle Emotion Simulation logic
- * @param {string} emotion - 'neutral', 'confused', 'frustrated', 'focused', 'bored'
  */
 function setEmotion(emotion) {
+    if (document.body.dataset.emotion === emotion) return; // prevent redundant triggers
+    
     // 1. Update body class for global emotion theming
-    document.body.className = `emotion-${emotion}`;
+    document.body.className = `emotion-${emotion} ${isDarkMode ? 'dark-theme' : ''}`;
     document.body.dataset.emotion = emotion;
+    
+    // Notify user of state change if authenticated
+    if (isAuthenticated) {
+        showToast('State Change Detected', emotionLabels[emotion], 'info');
+    }
+    
+    // Optional Pomodoro Hook: Auto-start if focused
+    if (emotion === 'focused' && isTimerPaused) {
+        toggleTimer();
+        showToast('Deep Focus', 'Timer started automatically.', 'success');
+    }
     
     // 2. Update Header Label & Icon
     const labelEl = document.querySelector('.emotion-label');
@@ -168,4 +359,190 @@ function toggleSettingsExpand(element) {
  */
 function confirmDelete() {
     document.getElementById('delete-modal').classList.add('active');
+}
+
+// TODO LOGIC
+let todos = [
+    { id: 1, text: "Read Chapter 4: Backpropagation", completed: true },
+    { id: 2, text: "Complete Neural Networks Quiz", completed: true },
+    { id: 3, text: "Review Derivative formulas", completed: false },
+    { id: 4, text: "Write reflection paragraph", completed: false }
+];
+
+function renderTodos() {
+    const list = document.getElementById('todo-list-container');
+    if (!list) return;
+    
+    const completedCount = todos.filter(t => t.completed).length;
+    const progressTextEl = document.getElementById('dashboard-todo-progress');
+    if (progressTextEl) {
+        progressTextEl.textContent = `You've completed ${completedCount} of ${todos.length} tasks today. Great progress!`;
+    }
+
+    list.innerHTML = '';
+    todos.forEach(todo => {
+        const li = document.createElement('li');
+        li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        
+        li.innerHTML = `
+            <div class="todo-left" onclick="toggleTodo(${todo.id})">
+                <div class="todo-checkbox">
+                    <i data-feather="check" style="width: 14px; height: 14px; stroke-width: 4px;"></i>
+                </div>
+                <span class="todo-text">${todo.text}</span>
+            </div>
+            <button class="delete-todo-btn" onclick="deleteTodo(${todo.id})">
+                <i data-feather="trash-2"></i>
+            </button>
+        `;
+        list.appendChild(li);
+    });
+    feather.replace();
+}
+
+function addTodo(e) {
+    e.preventDefault();
+    const input = document.getElementById('new-todo-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    todos.push({
+        id: Date.now(),
+        text: text,
+        completed: false
+    });
+    
+    input.value = '';
+    renderTodos();
+    showToast('Task Added', text, 'info');
+}
+
+function toggleTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+        todo.completed = !todo.completed;
+        renderTodos();
+        if (todo.completed) {
+            showToast('Task Completed!', todo.text, 'success');
+        }
+    }
+}
+
+function deleteTodo(id) {
+    todos = todos.filter(t => t.id !== id);
+    renderTodos();
+}
+
+// ==========================================
+// UX MECHANISMS: TOASTS, THEME, TIMER
+// ==========================================
+
+// Theme Logic
+let isDarkMode = false;
+function toggleTheme() {
+    isDarkMode = !isDarkMode;
+    if (isDarkMode) {
+        document.body.classList.add('dark-theme');
+    } else {
+        document.body.classList.remove('dark-theme');
+    }
+    
+    // Re-apply emotion body classes so we don't accidentally wipe 'emotion-neutral' 
+    const currentVis = document.body.dataset.emotion || 'neutral';
+    document.body.className = `emotion-${currentVis} ${isDarkMode ? 'dark-theme' : ''}`;
+    
+    const themeIcon = document.getElementById('theme-icon');
+    if (themeIcon) {
+        themeIcon.parentNode.innerHTML = `<i data-feather="${isDarkMode ? 'sun' : 'moon'}" id="theme-icon"></i>`;
+        feather.replace();
+    }
+    showToast('Theme Updated', isDarkMode ? 'Dark Mode Enabled' : 'Light Mode Enabled', 'info');
+}
+
+// Toast Logic
+function showToast(title, message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const icon = type === 'success' ? 'check' : 'info';
+    
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i data-feather="${icon}"></i>
+        </div>
+        <div class="toast-content">
+            <h4>${title}</h4>
+            <p>${message}</p>
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    feather.replace();
+    
+    // Animate in
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove after 3s
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400); 
+    }, 3000);
+}
+
+// Pomodoro Timer Logic
+let pomodoroRemaining = 25 * 60; // 25 mins
+let pomodoroInterval = null;
+let isTimerPaused = true;
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+}
+
+function updateTimerDisplay() {
+    const display = document.getElementById('focus-timer-display');
+    if (display) display.textContent = formatTime(pomodoroRemaining);
+}
+
+function toggleTimer() {
+    isTimerPaused = !isTimerPaused;
+    const btn = document.getElementById('focus-pause-btn');
+    if (btn) {
+        btn.innerHTML = `<i data-feather="${isTimerPaused ? 'play' : 'pause'}"></i>`;
+        feather.replace();
+    }
+    
+    if (!isTimerPaused) {
+        if (!pomodoroInterval) {
+            pomodoroInterval = setInterval(() => {
+                if (pomodoroRemaining > 0) {
+                    pomodoroRemaining--;
+                    updateTimerDisplay();
+                } else {
+                    // Timer finished!
+                    clearInterval(pomodoroInterval);
+                    pomodoroInterval = null;
+                    isTimerPaused = true;
+                    // Reset time
+                    pomodoroRemaining = 25 * 60; 
+                    updateTimerDisplay();
+                    if (btn) {
+                        btn.innerHTML = `<i data-feather="play"></i>`;
+                        feather.replace();
+                    }
+                    showToast('Focus Session Complete!', 'Time for a guided break.', 'success');
+                    setEmotion('frustrated'); // Routes to break screen
+                }
+            }, 1000);
+        }
+    } else {
+        if (pomodoroInterval) {
+            clearInterval(pomodoroInterval);
+            pomodoroInterval = null;
+        }
+    }
 }
