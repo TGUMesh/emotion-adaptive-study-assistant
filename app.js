@@ -605,38 +605,211 @@ function toggleHint(element) {
 }
 
 /**
- * UI Interaction: Gamified Quiz
+ * UI Interaction: Gamified Quiz (Multi-Question)
  */
+const quizBank = [
+    {
+        question: "What is the primary difference between a CNN and a standard MLP?",
+        options: [
+            { text: "MLPs use pooling layers while CNNs don't", correct: false },
+            { text: "CNNs maintain spatial hierarchy of data", correct: true },
+            { text: "CNNs are only for text processing", correct: false },
+            { text: "MLPs are faster but less accurate", correct: false }
+        ]
+    },
+    {
+        question: "What does the vanishing gradient problem cause?",
+        options: [
+            { text: "Weights explode to infinity", correct: false },
+            { text: "Early layers learn very slowly or stop learning", correct: true },
+            { text: "The model trains too quickly", correct: false },
+            { text: "The loss function becomes negative", correct: false }
+        ]
+    },
+    {
+        question: "Which activation function outputs max(0, x)?",
+        options: [
+            { text: "Sigmoid", correct: false },
+            { text: "Tanh", correct: false },
+            { text: "ReLU", correct: true },
+            { text: "Softmax", correct: false }
+        ]
+    },
+    {
+        question: "What is the purpose of a loss function in machine learning?",
+        options: [
+            { text: "To speed up training iterations", correct: false },
+            { text: "To measure how wrong the model's predictions are", correct: true },
+            { text: "To add more layers to the network", correct: false },
+            { text: "To normalize the input data", correct: false }
+        ]
+    },
+    {
+        question: "In gradient descent, what happens if the learning rate is too large?",
+        options: [
+            { text: "The model converges faster and better", correct: false },
+            { text: "Training becomes more stable", correct: false },
+            { text: "The model may overshoot the minimum and diverge", correct: true },
+            { text: "The gradients vanish completely", correct: false }
+        ]
+    }
+];
+
+let currentQuizIndex = 0;
+let quizScore = 0;
+let quizAnswered = new Array(quizBank.length).fill(false);
+
+function renderQuizQuestion() {
+    const q = quizBank[currentQuizIndex];
+    const questionEl = document.getElementById('quiz-question');
+    const optionsEl = document.getElementById('quiz-options');
+    const progressEl = document.getElementById('quiz-progress');
+    const prevBtn = document.getElementById('quiz-prev-btn');
+    const nextBtn = document.getElementById('quiz-next-btn');
+    
+    if (!questionEl || !optionsEl) return;
+    
+    progressEl.textContent = `QUESTION ${currentQuizIndex + 1} OF ${quizBank.length}`;
+    questionEl.textContent = q.question;
+    optionsEl.innerHTML = '';
+    
+    q.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-option';
+        btn.innerHTML = `${opt.text} <div class="radio"></div>`;
+        btn.onclick = () => selectQuizOption(btn, opt.correct);
+        optionsEl.appendChild(btn);
+    });
+    
+    // Navigation visibility
+    prevBtn.style.visibility = currentQuizIndex > 0 ? 'visible' : 'hidden';
+    nextBtn.style.display = quizAnswered[currentQuizIndex] ? 'block' : 'none';
+    
+    if (currentQuizIndex === quizBank.length - 1 && quizAnswered[currentQuizIndex]) {
+        nextBtn.textContent = 'Finish Quiz';
+    } else {
+        nextBtn.textContent = 'Next →';
+    }
+}
+
 function selectQuizOption(element, isCorrect) {
-    // Deselect all
+    if (quizAnswered[currentQuizIndex]) return; // already answered
+    
     const parent = element.parentNode;
     parent.querySelectorAll('.quiz-option').forEach(opt => {
         opt.classList.remove('selected');
-        // Reset checkbox visuals
         const radio = opt.querySelector('.radio');
         radio.innerHTML = '';
     });
     
-    // Select clicked
     element.classList.add('selected');
     const radio = element.querySelector('.radio');
     radio.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     
+    quizAnswered[currentQuizIndex] = true;
+    
     if (isCorrect) {
-        showToast("Correct!", "+15 XP Earned", "success");
-        // Simulate XP gain
-        const streak = document.querySelector('.streak strong');
-        if (streak) streak.textContent = "13 Days";
-        
+        quizScore++;
+        showToast("Correct!", `+15 XP Earned (${quizScore}/${currentQuizIndex + 1})`, "success");
         const xpText = document.querySelector('.xp-text span');
-        if (xpText) xpText.textContent = "435/1000";
+        if (xpText) xpText.textContent = `${420 + quizScore * 15}/1000`;
     } else {
-        showToast("Not quite...", "Try reviewing spatial hierarchies.", "info");
+        showToast("Not quite...", "The correct answer is highlighted.", "info");
     }
     
-    setTimeout(() => {
-        setEmotion('neutral');
-    }, 2000);
+    // Show next button
+    const nextBtn = document.getElementById('quiz-next-btn');
+    if (nextBtn) {
+        nextBtn.style.display = 'block';
+        if (currentQuizIndex === quizBank.length - 1) nextBtn.textContent = 'Finish Quiz';
+    }
+}
+
+function nextQuizQuestion() {
+    if (currentQuizIndex < quizBank.length - 1) {
+        currentQuizIndex++;
+        renderQuizQuestion();
+    } else {
+        // Quiz complete
+        showToast('Quiz Complete!', `You scored ${quizScore}/${quizBank.length}!`, 'success');
+        currentQuizIndex = 0;
+        quizScore = 0;
+        quizAnswered = new Array(quizBank.length).fill(false);
+        setTimeout(() => setEmotion('neutral'), 2000);
+    }
+}
+
+function prevQuizQuestion() {
+    if (currentQuizIndex > 0) {
+        currentQuizIndex--;
+        renderQuizQuestion();
+    }
+}
+
+// Initialize quiz on first load
+document.addEventListener('DOMContentLoaded', () => {
+    renderQuizQuestion();
+});
+
+// ==========================================
+// PDF IMPORT
+// ==========================================
+async function handlePdfUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    showToast('Importing PDF', file.name, 'info');
+    
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Set the worker source
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n\n';
+        }
+        
+        if (!fullText.trim()) {
+            showToast('PDF Error', 'Could not extract text. The PDF may be image-based.', 'info');
+            return;
+        }
+        
+        // Update the focus screen content
+        const chapterTitle = document.getElementById('focus-chapter-title');
+        const docTitle = document.getElementById('focus-doc-title');
+        const textContent = document.getElementById('focus-text-content');
+        
+        if (chapterTitle) chapterTitle.textContent = 'IMPORTED DOCUMENT';
+        if (docTitle) docTitle.textContent = file.name.replace('.pdf', '');
+        if (textContent) {
+            textContent.innerHTML = '';
+            // Split into paragraphs
+            const paragraphs = fullText.split(/\n\s*\n/).filter(p => p.trim());
+            paragraphs.forEach(para => {
+                const p = document.createElement('p');
+                p.textContent = para.trim();
+                textContent.appendChild(p);
+            });
+        }
+        
+        showToast('PDF Imported!', `${pdf.numPages} pages loaded successfully.`, 'success');
+        
+        // Navigate to focus mode
+        setEmotion('focused');
+        
+    } catch (err) {
+        console.error('PDF Error:', err);
+        showToast('PDF Error', 'Failed to read the PDF file.', 'info');
+    }
 }
 
 /**

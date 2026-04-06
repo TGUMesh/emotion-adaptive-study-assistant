@@ -14,6 +14,9 @@
     <script src="https://unpkg.com/feather-icons"></script>
     
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- PDF.js for PDF text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body data-emotion="neutral">
     
@@ -313,15 +316,25 @@
         <section id="screen-focused" class="screen">
             <div class="focused-study-container">
                 <div class="study-content">
-                    <h2 class="mono-font text-muted mb-2">CHAPTER 4: NEURAL NETWORKS</h2>
-                    <h1 class="mb-4">The Backpropagation Algorithm</h1>
-                    <div class="focus-text">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <h2 class="mono-font text-muted mb-2" id="focus-chapter-title">CHAPTER 4: NEURAL NETWORKS</h2>
+                        <label class="outline-btn" style="cursor:pointer; padding:8px 16px; font-size:13px;" title="Import your own PDF">
+                            <i data-feather="upload" style="width:14px;height:14px;"></i> Import PDF
+                            <input type="file" id="pdf-file-input" accept=".pdf" style="display:none;" onchange="handlePdfUpload(event)">
+                        </label>
+                    </div>
+                    <h1 class="mb-4" id="focus-doc-title">The Backpropagation Algorithm</h1>
+                    <div class="focus-text" id="focus-text-content">
                         <p>Backpropagation is the essence of neural net training. It is the practice of fine-tuning the weights of a neural net based on the error rate (i.e., loss) obtained in the previous epoch (i.e., iteration). Proper tuning of the weights guarantees lower error rates, making the model reliable by increasing its generalization capability.</p>
                         <p>The goals of backpropagation are straightforward:</p>
                         <ul>
                             <li>Calculate the gradient of the loss function with respect to the weights.</li>
                             <li>Update the weights using gradient descent or a related optimization algorithm.</li>
                         </ul>
+                        <p>The algorithm proceeds layer by layer, from the output back to the input — hence the name "back" propagation. At each layer, it computes how much each neuron contributed to the overall error, then adjusts the weights proportionally.</p>
+                        <p>Mathematically, we use the chain rule of calculus to decompose the gradient. The partial derivative of the loss L with respect to weight w is computed as: ∂L/∂w = ∂L/∂a · ∂a/∂z · ∂z/∂w, where a is the activation, z is the weighted sum, and w is the weight.</p>
+                        <p>Common activation functions include ReLU (Rectified Linear Unit), which outputs max(0, x), and Sigmoid, which squashes values between 0 and 1. ReLU is preferred in deep networks because it mitigates the vanishing gradient problem.</p>
+                        <p>A critical hyperparameter is the learning rate (η). If η is too large, the model may overshoot the optimal weights and diverge. If η is too small, convergence will be painfully slow. Adaptive optimizers like Adam combine momentum with per-parameter learning rates for a balance of speed and stability.</p>
                     </div>
                 </div>
             </div>
@@ -397,14 +410,15 @@
 
                 <div class="split-layout gamified-layout mt-4">
                     <div class="quiz-card card">
-                        <div class="tag bored-tag mb-3">QUESTION 1 OF 5</div>
-                        <h3>What is the primary difference between a CNN and a standard MLP?</h3>
+                        <div class="tag bored-tag mb-3" id="quiz-progress">QUESTION 1 OF 5</div>
+                        <h3 id="quiz-question">Loading...</h3>
                         
-                        <div class="quiz-options mt-3">
-                            <button class="quiz-option" onclick="selectQuizOption(this, false)">MLPs use pooling layers while CNNs don't <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this, true)">CNNs maintain spatial hierarchy of data <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this, false)">CNNs are only for text processing <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this, false)">MLPs are faster but less accurate <div class="radio"></div></button>
+                        <div class="quiz-options mt-3" id="quiz-options">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div class="quiz-nav mt-3" style="display:flex; justify-content:space-between; align-items:center;">
+                            <button class="text-btn" id="quiz-prev-btn" onclick="prevQuizQuestion()" style="visibility:hidden;">← Previous</button>
+                            <button class="primary-btn" id="quiz-next-btn" onclick="nextQuizQuestion()" style="display:none;">Next →</button>
                         </div>
                     </div>
                     
