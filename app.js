@@ -1,6 +1,41 @@
 // Emotion Analysis State
-let webcamActive = true;
-let isAuthenticated = false;
+let webcamActive = localStorage.getItem('webcamActive') !== 'false';
+let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+let currentTheme = localStorage.getItem('theme') || 'light';
+let todos = JSON.parse(localStorage.getItem('todos')) || [
+    { id: 1, text: "Read Chapter 4: Backpropagation", completed: true },
+    { id: 2, text: "Complete Neural Networks Quiz", completed: true },
+    { id: 3, text: "Review Derivative formulas", completed: false },
+    { id: 4, text: "Write reflection paragraph", completed: false }
+];
+let userName = localStorage.getItem('userName') || "Student";
+let studyDates = JSON.parse(localStorage.getItem('studyDates'));
+
+// Prototype Seed Data for Calendar Visualization
+if (!studyDates || studyDates.length <= 1) {
+    if (!studyDates) studyDates = [];
+    const today = new Date();
+    // Add 4 consecutive past days to simulate an ongoing streak
+    for (let i = 1; i <= 4; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dStr = `${y}-${m}-${day}`;
+        if (!studyDates.includes(dStr)) studyDates.push(dStr);
+    }
+}
+
+function saveState() {
+    localStorage.setItem('webcamActive', webcamActive);
+    localStorage.setItem('isAuthenticated', isAuthenticated);
+    localStorage.setItem('theme', currentTheme);
+    localStorage.setItem('todos', JSON.stringify(todos));
+    localStorage.setItem('userName', userName);
+    localStorage.setItem('studyDates', JSON.stringify(studyDates));
+}
+
 let emotionDetectionInterval = null;
 let currentEmotionBuffer = [];
 const BUFFER_SIZE = 6; // 6 frames at 500ms = 3 seconds
@@ -10,11 +45,39 @@ let emotionCooldown = 0; // Timestamp to pause tracking
 document.addEventListener("DOMContentLoaded", async () => {
     feather.replace();
     
+    document.body.setAttribute('data-theme', currentTheme);
+    const themeSelect = document.getElementById('theme-selector');
+    if (themeSelect) themeSelect.value = currentTheme;
+    
+    const panel = document.querySelector('.debug-panel');
+    if (panel) panel.style.display = 'flex';
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key.toLowerCase() === 'd') {
+            e.preventDefault();
+            if (panel) panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+        }
+    });
+
+    if (isAuthenticated) {
+        document.getElementById('main-header').style.display = 'flex';
+        document.getElementById('bottom-nav').style.display = 'flex';
+        const greetingEl = document.getElementById('greeting-text');
+        if (greetingEl) greetingEl.textContent = `Good evening, ${userName}`;
+        document.getElementById('screen-login').classList.remove('active');
+        renderTodos();
+        setEmotion('neutral');
+        logStudyDay();
+        renderCalendar();
+    }
+
     // Bind webcam toggle
     const toggle = document.getElementById('webcam-toggle');
     if (toggle) {
+        toggle.checked = webcamActive;
         toggle.addEventListener('change', (e) => {
             webcamActive = e.target.checked;
+            saveState();
             if (webcamActive && isAuthenticated) {
                 startWebcam();
             } else {
@@ -38,25 +101,25 @@ function performLogin(event) {
     event.preventDefault(); // Stop form reload
     
     const usernameInput = document.getElementById('username-input');
-    const name = usernameInput && usernameInput.value ? usernameInput.value : "Student";
+    userName = usernameInput && usernameInput.value ? usernameInput.value : "Student";
+    isAuthenticated = true;
+    saveState();
     
     // 1. Update the Header Name dynamically
     const greetingEl = document.getElementById('greeting-text');
-    if (greetingEl) {
-        greetingEl.textContent = `Good evening, ${name}`;
-    }
+    if (greetingEl) greetingEl.textContent = `Good evening, ${userName}`;
     
     // 2. Unhide navigation elements
     document.getElementById('main-header').style.display = 'flex';
     document.getElementById('bottom-nav').style.display = 'flex';
     
-    // 3. Set Authenticated state
-    isAuthenticated = true;
-    
-    // 4. Trigger the usual initialization routines (hides login screen, routes to dashboard)
+    // 4. Trigger the usual initialization routines
+    document.getElementById('screen-login').classList.remove('active');
     renderTodos();
     document.body.dataset.emotion = 'login'; // Reset to force the neutral transition
     setEmotion('neutral');
+    logStudyDay();
+    renderCalendar();
     showToast('Welcome Back!', 'Your study dashboard is ready.', 'success');
     
     // 5. Start models if they finished loading
@@ -143,7 +206,7 @@ async function detectEmotion() {
             if (emotion === 'angry' || emotion === 'disgusted') mappedEmotion = 'frustrated';
             else if (emotion === 'surprised') mappedEmotion = 'confused';
             else if (emotion === 'sad') mappedEmotion = 'bored';
-            else if (emotion === 'happy') mappedEmotion = 'focused'; 
+            else if (emotion === 'happy') mappedEmotion = 'neutral'; 
         }
 
         recordEmotion(mappedEmotion);
@@ -160,9 +223,10 @@ function recordEmotion(emotion) {
     }
     
     if (currentEmotionBuffer.length === BUFFER_SIZE) {
-        // Require 5 out of 6 consecutive frames to be identical to account for minor API flickering
-        const count = currentEmotionBuffer.filter(e => e === emotion).length;
-        if (count >= 5) {
+        // Require latest 3 out of 4 frames to be identical
+        const recentFrames = currentEmotionBuffer.slice(-4);
+        const count = recentFrames.filter(e => e === emotion).length;
+        if (count >= 3 && currentEmotionBuffer[BUFFER_SIZE - 1] === emotion) {
             updateWebcamStatus(`Detected: ${emotion}`);
             
             if (document.body.dataset.emotion !== emotion) {
@@ -174,15 +238,228 @@ function recordEmotion(emotion) {
     }
 }
 
+let breakInterval = null;
+
 // User ignores the suggestion and continues reading
-function ignoreEmotion() {
-    // 30 Seconds cooldown to prevent re-triggering immediately
-    emotionCooldown = Date.now() + 30000;
+function ignoreEmotion(resetTimer = true) {
+    if (breakInterval) {
+        clearInterval(breakInterval);
+        breakInterval = null;
+    }
+    const breakTimerDisplay = document.getElementById('break-timer-display');
+    const breakOptions = document.querySelector('.break-options');
+    if (breakTimerDisplay) breakTimerDisplay.style.display = 'none';
+    if (breakOptions) breakOptions.style.display = 'flex';
     
-    // Clear buffer and return to neutral dashboard
+    if (resetTimer) emotionCooldown = Date.now() + 120000;
+    else emotionCooldown = Date.now() + 60000;
+    
     currentEmotionBuffer = [];
     setEmotion('neutral');
-    updateWebcamStatus("Paused for 30s");
+    updateWebcamStatus("Paused (Cooldown)");
+    const tutorUI = document.getElementById('ai-tutor-container');
+    if (tutorUI) tutorUI.style.display = 'none';
+    const tutorFocusUI = document.getElementById('ai-tutor-container-focus');
+    if (tutorFocusUI) tutorFocusUI.style.display = 'none';
+}
+
+function askAiTutor() {}
+function askAiTutorFocus() {}
+
+// ==========================================
+// AI TUTOR CHATBOT
+// ==========================================
+const tutorResponses = {
+    derivative: [
+        "A derivative measures how a function changes as its input changes. Think of it as the 'instantaneous speed' of a curve at any point.",
+        "The power rule is your best friend: d/dx[x^n] = n·x^(n-1). For example, d/dx[x³] = 3x².",
+        "Remember: the derivative of a constant is always 0, and the derivative of x is always 1."
+    ],
+    backpropagation: [
+        "Backpropagation works in two phases: forward pass (compute output) and backward pass (compute gradients). The chain rule connects them.",
+        "Think of it like tracing blame: if the output is wrong, backprop tells each weight how much it contributed to the error.",
+        "The key insight is the chain rule: ∂L/∂w = ∂L/∂a · ∂a/∂z · ∂z/∂w, where each term is easy to compute individually."
+    ],
+    neural: [
+        "A neural network is really just a series of matrix multiplications followed by non-linear functions (activations).",
+        "Each layer transforms the data into a more useful representation. The network learns *which* transformations are best.",
+        "The universal approximation theorem tells us a single hidden layer can approximate any function — but deeper networks learn more efficiently."
+    ],
+    gradient: [
+        "The gradient points in the direction of steepest ascent. We go *opposite* to it (gradient descent) to minimize loss.",
+        "If the gradient is large, we're far from the minimum. If it's tiny, we're either at the minimum or stuck in a flat region.",
+        "Learning rate controls step size: too large and you overshoot, too small and training takes forever."
+    ],
+    loss: [
+        "The loss function measures how wrong your model is. Common ones: MSE for regression, Cross-Entropy for classification.",
+        "A good loss function should be differentiable (so we can compute gradients) and reflect what we actually care about.",
+        "If training loss drops but validation loss rises, you're overfitting — the model memorizes instead of learning patterns."
+    ],
+    general: [
+        "That's a great question! Let me think about it... The key is to break complex topics into smaller, digestible parts.",
+        "I'd suggest re-reading the relevant section slowly and trying to explain it in your own words — that's active recall!",
+        "Try working through a concrete example by hand. Abstract concepts become much clearer with specific numbers.",
+        "Don't hesitate to draw diagrams. Visual representations often reveal patterns that text alone can't.",
+        "One effective technique: try teaching this concept to an imaginary beginner. If you can explain it simply, you understand it."
+    ]
+};
+
+function getAiResponse(userMessage) {
+    const msg = userMessage.toLowerCase();
+    if (msg.includes('derivative') || msg.includes('differentiat') || msg.includes('slope')) {
+        return tutorResponses.derivative[Math.floor(Math.random() * tutorResponses.derivative.length)];
+    }
+    if (msg.includes('backprop') || msg.includes('back prop') || msg.includes('backward')) {
+        return tutorResponses.backpropagation[Math.floor(Math.random() * tutorResponses.backpropagation.length)];
+    }
+    if (msg.includes('neural') || msg.includes('network') || msg.includes('layer') || msg.includes('neuron')) {
+        return tutorResponses.neural[Math.floor(Math.random() * tutorResponses.neural.length)];
+    }
+    if (msg.includes('gradient') || msg.includes('learning rate') || msg.includes('descent')) {
+        return tutorResponses.gradient[Math.floor(Math.random() * tutorResponses.gradient.length)];
+    }
+    if (msg.includes('loss') || msg.includes('error') || msg.includes('overfit')) {
+        return tutorResponses.loss[Math.floor(Math.random() * tutorResponses.loss.length)];
+    }
+    return tutorResponses.general[Math.floor(Math.random() * tutorResponses.general.length)];
+}
+
+function sendChatMessage(event, context) {
+    event.preventDefault();
+    
+    const input = document.getElementById(`chat-input-${context}`);
+    const messagesContainer = document.getElementById(`chat-messages-${context}`);
+    if (!input || !messagesContainer) return;
+    
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Add user message
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-msg user';
+    const userP = document.createElement('p');
+    userP.textContent = text;
+    userMsg.appendChild(userP);
+    messagesContainer.appendChild(userMsg);
+    
+    input.value = '';
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Show typing indicator
+    const typingMsg = document.createElement('div');
+    typingMsg.className = 'chat-msg bot typing';
+    typingMsg.innerHTML = '<p>Thinking...</p>';
+    messagesContainer.appendChild(typingMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Simulate response delay
+    setTimeout(() => {
+        typingMsg.remove();
+        
+        const botMsg = document.createElement('div');
+        botMsg.className = 'chat-msg bot';
+        const botP = document.createElement('p');
+        botP.textContent = getAiResponse(text);
+        botMsg.appendChild(botP);
+        messagesContainer.appendChild(botMsg);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 800 + Math.random() * 700);
+}
+
+function toggleChatWidget(id) {
+    const widget = document.getElementById(id);
+    if (widget && widget.classList.contains('chat-widget-floating')) {
+        widget.classList.toggle('active');
+    }
+}
+
+// ==========================================
+// TEXT-TO-SPEECH (Read Aloud)
+// ==========================================
+let isSpeaking = false;
+let speechUtterance = null;
+
+function toggleReadAloud() {
+    const btn = document.getElementById('tts-toggle-btn');
+    
+    if (isSpeaking) {
+        // Stop reading
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        if (btn) {
+            btn.innerHTML = '<i data-feather="headphones"></i>';
+            btn.style.background = '';
+            btn.style.color = '';
+            feather.replace();
+        }
+        showToast('Read Aloud', 'Stopped reading.', 'info');
+        return;
+    }
+    
+    // Grab the text content from the focus screen
+    const focusText = document.querySelector('.focus-text');
+    if (!focusText) return;
+    
+    const textContent = focusText.innerText;
+    if (!textContent.trim()) return;
+    
+    speechUtterance = new SpeechSynthesisUtterance(textContent);
+    speechUtterance.rate = 0.9;
+    speechUtterance.pitch = 1;
+    speechUtterance.lang = 'en-US';
+    
+    // Try to pick a natural-sounding voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha'));
+    if (preferred) speechUtterance.voice = preferred;
+    
+    speechUtterance.onend = () => {
+        isSpeaking = false;
+        if (btn) {
+            btn.innerHTML = '<i data-feather="headphones"></i>';
+            btn.style.background = '';
+            btn.style.color = '';
+            feather.replace();
+        }
+        showToast('Read Aloud', 'Finished reading.', 'success');
+    };
+    
+    window.speechSynthesis.speak(speechUtterance);
+    isSpeaking = true;
+    
+    if (btn) {
+        btn.innerHTML = '<i data-feather="volume-x"></i>';
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'white';
+        feather.replace();
+    }
+    showToast('Read Aloud', 'Reading study content...', 'info');
+}
+
+function startBreakTimer() {
+    const breakOptions = document.querySelector('.break-options');
+    const timerDisplay = document.getElementById('break-timer-display');
+    if (breakOptions && timerDisplay) {
+        breakOptions.style.display = 'none';
+        timerDisplay.style.display = 'block';
+        
+        let breakRemaining = 5 * 60;
+        timerDisplay.textContent = formatTime(breakRemaining);
+        
+        if (breakInterval) clearInterval(breakInterval);
+        
+        breakInterval = setInterval(() => {
+            if (breakRemaining > 0) {
+                breakRemaining--;
+                timerDisplay.textContent = formatTime(breakRemaining);
+            } else {
+                clearInterval(breakInterval);
+                breakInterval = null;
+                showToast('Break Complete!', 'Ready to focus again?', 'success');
+                ignoreEmotion(false);
+            }
+        }, 1000);
+    }
 }
 
 /**
@@ -219,12 +496,23 @@ function setEmotion(emotion) {
     if (document.body.dataset.emotion === emotion) return; // prevent redundant triggers
     
     // 1. Update body class for global emotion theming
-    document.body.className = `emotion-${emotion} ${isDarkMode ? 'dark-theme' : ''}`;
+    // Do not overwrite data-theme. Just change class.
+    document.body.className = `emotion-${emotion}`;
     document.body.dataset.emotion = emotion;
     
     // Notify user of state change if authenticated
-    if (isAuthenticated) {
+    if (isAuthenticated && emotion !== 'login') {
         showToast('State Change Detected', emotionLabels[emotion], 'info');
+    }
+    
+    // 1-minute logic cooldowns for focus/breathing
+    if (emotion === 'frustrated') {
+        emotionCooldown = Date.now() + 60000;
+        updateWebcamStatus("Paused (Breathing)");
+    }
+    if (emotion === 'focused') {
+        emotionCooldown = Date.now() + 60000;
+        updateWebcamStatus("Paused (Focus)");
     }
     
     // Optional Pomodoro Hook: Auto-start if focused
@@ -283,7 +571,7 @@ function navigateTo(screenId) {
     document.querySelectorAll('.nav-item').forEach(nav => {
         nav.classList.remove('active');
         // Simple heuristic: if the onclick contains the screenId, it's the active nav
-        if (nav.getAttribute('onclick').includes(screenId)) {
+        if (nav.hasAttribute('onclick') && nav.getAttribute('onclick').includes(screenId)) {
             nav.classList.add('active');
         }
     });
@@ -319,7 +607,7 @@ function toggleHint(element) {
 /**
  * UI Interaction: Gamified Quiz
  */
-function selectQuizOption(element) {
+function selectQuizOption(element, isCorrect) {
     // Deselect all
     const parent = element.parentNode;
     parent.querySelectorAll('.quiz-option').forEach(opt => {
@@ -334,17 +622,21 @@ function selectQuizOption(element) {
     const radio = element.querySelector('.radio');
     radio.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     
-    // Simulate XP gain
-    const streak = document.querySelector('.streak strong');
-    if (streak) streak.textContent = "13 Days";
+    if (isCorrect) {
+        showToast("Correct!", "+15 XP Earned", "success");
+        // Simulate XP gain
+        const streak = document.querySelector('.streak strong');
+        if (streak) streak.textContent = "13 Days";
+        
+        const xpText = document.querySelector('.xp-text span');
+        if (xpText) xpText.textContent = "435/1000";
+    } else {
+        showToast("Not quite...", "Try reviewing spatial hierarchies.", "info");
+    }
     
-    const xpText = document.querySelector('.xp-text span');
-    if (xpText) xpText.textContent = "435/1000";
-    
-    // Brief confetti simulation (just a visual delay response for the prototype)
     setTimeout(() => {
         setEmotion('neutral');
-    }, 1500);
+    }, 2000);
 }
 
 /**
@@ -362,13 +654,6 @@ function confirmDelete() {
 }
 
 // TODO LOGIC
-let todos = [
-    { id: 1, text: "Read Chapter 4: Backpropagation", completed: true },
-    { id: 2, text: "Complete Neural Networks Quiz", completed: true },
-    { id: 3, text: "Review Derivative formulas", completed: false },
-    { id: 4, text: "Write reflection paragraph", completed: false }
-];
-
 function renderTodos() {
     const list = document.getElementById('todo-list-container');
     if (!list) return;
@@ -384,17 +669,28 @@ function renderTodos() {
         const li = document.createElement('li');
         li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
         
-        li.innerHTML = `
-            <div class="todo-left" onclick="toggleTodo(${todo.id})">
-                <div class="todo-checkbox">
-                    <i data-feather="check" style="width: 14px; height: 14px; stroke-width: 4px;"></i>
-                </div>
-                <span class="todo-text">${todo.text}</span>
-            </div>
-            <button class="delete-todo-btn" onclick="deleteTodo(${todo.id})">
-                <i data-feather="trash-2"></i>
-            </button>
-        `;
+        const leftDiv = document.createElement('div');
+        leftDiv.className = 'todo-left';
+        leftDiv.onclick = () => toggleTodo(todo.id);
+        
+        const checkboxDiv = document.createElement('div');
+        checkboxDiv.className = 'todo-checkbox';
+        checkboxDiv.innerHTML = '<i data-feather="check" style="width: 14px; height: 14px; stroke-width: 4px;"></i>';
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'todo-text';
+        textSpan.textContent = todo.text; // TextContent prevents XSS
+        
+        leftDiv.appendChild(checkboxDiv);
+        leftDiv.appendChild(textSpan);
+        
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-todo-btn';
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteTodo(todo.id); };
+        delBtn.innerHTML = '<i data-feather="trash-2"></i>';
+        
+        li.appendChild(leftDiv);
+        li.appendChild(delBtn);
         list.appendChild(li);
     });
     feather.replace();
@@ -411,6 +707,7 @@ function addTodo(e) {
         text: text,
         completed: false
     });
+    saveState();
     
     input.value = '';
     renderTodos();
@@ -421,6 +718,7 @@ function toggleTodo(id) {
     const todo = todos.find(t => t.id === id);
     if (todo) {
         todo.completed = !todo.completed;
+        saveState();
         renderTodos();
         if (todo.completed) {
             showToast('Task Completed!', todo.text, 'success');
@@ -430,7 +728,95 @@ function toggleTodo(id) {
 
 function deleteTodo(id) {
     todos = todos.filter(t => t.id !== id);
+    saveState();
     renderTodos();
+}
+
+// CALENDAR STREAK LOGIC
+function logStudyDay() {
+    const date = new Date();
+    // Use local time for timezone safety instead of standard ISO
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    
+    if (!studyDates.includes(todayStr)) {
+        studyDates.push(todayStr);
+        saveState();
+    }
+}
+
+function renderCalendar() {
+    const grid = document.getElementById('calendar-grid');
+    const streakCountEl = document.getElementById('current-streak-count');
+    if (!grid || !streakCountEl) return;
+    
+    grid.innerHTML = '';
+    
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    
+    // Empty spaces for the previous month
+    for (let i = 0; i < firstDay; i++) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'calendar-day empty';
+        grid.appendChild(emptyDiv);
+    }
+    
+    // Calculate simple streak (consecutive days backward from today)
+    const dateStrings = studyDates.sort((a,b) => b.localeCompare(a));
+    let currentStreak = 0;
+    let checkDate = new Date(); // Local time
+    
+    for (let i = 0; i < 365; i++) {
+        const y = checkDate.getFullYear();
+        const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+        const d = String(checkDate.getDate()).padStart(2, '0');
+        const dStr = `${y}-${m}-${d}`;
+        
+        if (dateStrings.includes(dStr)) {
+            currentStreak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+            // Check if today isn't logged yet, then check yesterday
+            if (i === 0) {
+               checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+               break;
+            }
+        }
+    }
+    streakCountEl.textContent = currentStreak;
+
+    // Format today string
+    const ty = today.getFullYear();
+    const tm = String(today.getMonth() + 1).padStart(2, '0');
+    const td = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${ty}-${tm}-${td}`;
+
+    // Fill days
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day';
+        dayDiv.textContent = i;
+        
+        const mStr = String(currentMonth + 1).padStart(2, '0');
+        const dStr = String(i).padStart(2, '0');
+        const dateStr = `${currentYear}-${mStr}-${dStr}`;
+        
+        if (studyDates.includes(dateStr)) {
+            dayDiv.classList.add('studied');
+        }
+        if (dateStr === todayStr) {
+            dayDiv.classList.add('today');
+        }
+        
+        grid.appendChild(dayDiv);
+    }
 }
 
 // ==========================================
@@ -438,25 +824,27 @@ function deleteTodo(id) {
 // ==========================================
 
 // Theme Logic
-let isDarkMode = false;
-function toggleTheme() {
-    isDarkMode = !isDarkMode;
-    if (isDarkMode) {
-        document.body.classList.add('dark-theme');
-    } else {
-        document.body.classList.remove('dark-theme');
-    }
+const themes = ['light', 'dark', 'ocean', 'sepia'];
+
+function cycleTheme() {
+    const currentIndex = themes.indexOf(currentTheme);
+    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    setTheme(nextTheme);
+}
+
+function setTheme(theme) {
+    currentTheme = theme;
+    document.body.setAttribute('data-theme', currentTheme);
+    saveState();
     
-    // Re-apply emotion body classes so we don't accidentally wipe 'emotion-neutral' 
+    // Update body classes to maintain emotion
     const currentVis = document.body.dataset.emotion || 'neutral';
-    document.body.className = `emotion-${currentVis} ${isDarkMode ? 'dark-theme' : ''}`;
+    document.body.className = `emotion-${currentVis}`;
     
-    const themeIcon = document.getElementById('theme-icon');
-    if (themeIcon) {
-        themeIcon.parentNode.innerHTML = `<i data-feather="${isDarkMode ? 'sun' : 'moon'}" id="theme-icon"></i>`;
-        feather.replace();
-    }
-    showToast('Theme Updated', isDarkMode ? 'Dark Mode Enabled' : 'Light Mode Enabled', 'info');
+    const themeSelect = document.getElementById('theme-selector');
+    if (themeSelect) themeSelect.value = currentTheme;
+    
+    showToast('Theme Updated', `${theme.charAt(0).toUpperCase() + theme.slice(1)} Mode Enabled`, 'info');
 }
 
 // Toast Logic
@@ -492,6 +880,43 @@ function showToast(title, message, type = 'info') {
     }, 3000);
 }
 
+// ==========================================
+// PROFILE DROPDOWN LOGIC
+// ==========================================
+function toggleDropdown(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById('profile-dropdown');
+    if (dropdown) dropdown.classList.toggle('active');
+}
+
+// Close dropdown if clicking outside
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('profile-dropdown');
+    if (dropdown && dropdown.classList.contains('active')) {
+        if (!e.target.closest('.user-profile')) {
+            dropdown.classList.remove('active');
+        }
+    }
+});
+
+function performLogout() {
+    isAuthenticated = false;
+    saveState();
+    
+    document.getElementById('main-header').style.display = 'none';
+    document.getElementById('bottom-nav').style.display = 'none';
+    
+    // Hide all screens, show login
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-login').classList.add('active');
+    
+    // Hide dropdown
+    const dropdown = document.getElementById('profile-dropdown');
+    if (dropdown) dropdown.classList.remove('active');
+    
+    showToast('Logged Out', 'You have been safely logged out.', 'info');
+}
+
 // Pomodoro Timer Logic
 let pomodoroRemaining = 25 * 60; // 25 mins
 let pomodoroInterval = null;
@@ -517,6 +942,8 @@ function toggleTimer() {
     }
     
     if (!isTimerPaused) {
+        emotionCooldown = Date.now() + 60000;
+        updateWebcamStatus("Paused (Focus Timer)");
         if (!pomodoroInterval) {
             pomodoroInterval = setInterval(() => {
                 if (pomodoroRemaining > 0) {

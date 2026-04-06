@@ -36,12 +36,18 @@
                 <button onclick="setEmotion('bored')" data-trigger="bored">Bored</button>
             </div>
 
-            <button class="icon-btn focus-hide" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Dark Mode">
-                <i data-feather="moon" id="theme-icon"></i>
+            <button class="icon-btn focus-hide" id="theme-toggle-btn" onclick="cycleTheme()" title="Toggle Theme">
+                <i data-feather="sun" id="theme-icon"></i>
             </button>
             <button class="icon-btn focus-hide"><i data-feather="search"></i></button>
             <button class="icon-btn focus-hide"><i data-feather="bell"></i></button>
-            <div class="avatar focus-hide">U</div>
+            <div class="user-profile focus-hide" style="position: relative;">
+                <div class="avatar" style="cursor: pointer;" onclick="toggleDropdown(event)">U</div>
+                <div id="profile-dropdown" class="dropdown-menu">
+                    <button class="dropdown-item" onclick="navigateTo('settings'); toggleDropdown();"><i data-feather="settings"></i> Settings</button>
+                    <button class="dropdown-item text-danger" onclick="performLogout()"><i data-feather="log-out"></i> Logout</button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -91,7 +97,7 @@
                     <div class="card-icon"><i data-feather="play"></i></div>
                     <h2>Continue Studying</h2>
                     <p>Resume "Backpropagation Algorithms" where you left off 2 hours ago.</p>
-                    <button class="text-btn">Start Session <i data-feather="chevron-right"></i></button>
+                    <button class="text-btn" onclick="setEmotion('focused')">Start Session <i data-feather="chevron-right"></i></button>
                 </div>
                 
                 <div class="card today-goals elevate-hover">
@@ -162,6 +168,23 @@
                         </li>
                     </ul>
                 </div>
+                
+                <div class="card streak-calendar elevate-hover">
+                    <div class="card-header mb-2" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>Study Streak</h3>
+                        <div style="display:flex; align-items:center; gap:4px; font-weight:600; color:var(--primary); font-size:14px;">
+                            <i data-feather="target" style="width:16px;"></i> <span id="current-streak-count">0</span>
+                        </div>
+                    </div>
+                    <div class="calendar-wrapper mt-2">
+                        <div class="calendar-header">
+                            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                        </div>
+                        <div class="calendar-grid" id="calendar-grid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -203,8 +226,28 @@
                     </div>
                     
                     <div class="action-buttons mt-4">
-                        <button class="primary-btn">Ask AI Tutor</button>
-                        <button class="outline-btn" onclick="ignoreEmotion()">Try Again Later</button>
+                        <div id="ai-tutor-chat" class="chat-widget">
+                            <div class="chat-header">
+                                <div class="chat-header-left">
+                                    <div class="chat-avatar"><i data-feather="cpu"></i></div>
+                                    <div>
+                                        <strong>AI Tutor</strong>
+                                        <span class="chat-status">Online</span>
+                                    </div>
+                                </div>
+                                <button class="icon-btn tiny" onclick="toggleChatWidget('ai-tutor-chat')"><i data-feather="minus"></i></button>
+                            </div>
+                            <div class="chat-messages" id="chat-messages-confused">
+                                <div class="chat-msg bot">
+                                    <p>Hi! I noticed you seem stuck. Ask me anything about the current topic and I'll help break it down.</p>
+                                </div>
+                            </div>
+                            <form class="chat-input-area" onsubmit="sendChatMessage(event, 'confused')">
+                                <input type="text" id="chat-input-confused" placeholder="Ask a question..." autocomplete="off">
+                                <button type="submit" class="chat-send-btn"><i data-feather="send"></i></button>
+                            </form>
+                        </div>
+                        <button class="outline-btn" onclick="ignoreEmotion(false)">Try Again Later</button>
                     </div>
                 </div>
                 <div class="concept-map-panel card elevate-hover">
@@ -213,16 +256,17 @@
                         <button class="icon-btn"><i data-feather="refresh-cw"></i></button>
                     </div>
                     <div class="concept-visual">
-                        <!-- Mock Map -->
+                        <svg class="map-connections" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;">
+                            <line x1="50%" y1="50%" x2="25%" y2="15%" stroke="var(--border)" stroke-width="2" />
+                            <line x1="50%" y1="50%" x2="75%" y2="15%" stroke="var(--border)" stroke-width="2" />
+                            <line x1="50%" y1="50%" x2="75%" y2="85%" stroke="var(--border)" stroke-width="2" />
+                            <line x1="50%" y1="50%" x2="25%" y2="85%" stroke="var(--border)" stroke-width="2" />
+                        </svg>
                         <div class="map-node node-center">Derivatives</div>
                         <div class="map-node node-1">Limits</div>
                         <div class="map-node node-2 active-confused">Slopes</div>
                         <div class="map-node node-3">Integrals</div>
-                        
-                        <div class="map-line line-1"></div>
-                        <div class="map-line line-2"></div>
-                        <div class="map-line line-3"></div>
-                        <div class="map-line line-4"></div>
+                        <div class="map-node node-4">Rates</div>
                     </div>
                     <p class="text-center subtitle mt-2">Click nodes to explore connections</p>
                 </div>
@@ -245,7 +289,7 @@
                     </div>
 
                     <div class="break-options">
-                        <button class="card-btn elevate-hover">
+                        <button class="card-btn elevate-hover" onclick="startBreakTimer()">
                             <i data-feather="clock" class="text-teal"></i>
                             <span>5-min break</span>
                         </button>
@@ -254,9 +298,13 @@
                             <span>Switch Topic</span>
                         </button>
                     </div>
+                    
+                    <div id="break-timer-display" style="display: none; font-size: 32px; font-weight: 600; color: var(--secondary); margin-top: 24px; font-variant-numeric: tabular-nums;">
+                        05:00
+                    </div>
                 </div>
                 <div class="resume-footer">
-                    <button class="text-btn" onclick="ignoreEmotion()">Resume study anytime</button>
+                    <button class="text-btn" onclick="ignoreEmotion(false)">Resume study anytime</button>
                 </div>
             </div>
         </section>
@@ -284,8 +332,36 @@
                 <button class="icon-btn tiny" id="focus-pause-btn" onclick="toggleTimer()"><i data-feather="pause"></i></button>
             </div>
             
-            <div class="ambient-toggle">
-                <button class="icon-btn tiny"><i data-feather="headphones"></i></button>
+            <div class="ambient-toggle" style="bottom: 100px;" title="Read Aloud">
+                <button class="icon-btn tiny" id="tts-toggle-btn" onclick="toggleReadAloud()"><i data-feather="headphones"></i></button>
+            </div>
+            
+            <!-- Floating AI Tutor Chat -->
+            <div class="ai-tutor-focus-overlay">
+                <div id="ai-tutor-chat-focus" class="chat-widget chat-widget-floating">
+                    <div class="chat-header">
+                        <div class="chat-header-left">
+                            <div class="chat-avatar"><i data-feather="cpu"></i></div>
+                            <div>
+                                <strong>AI Tutor</strong>
+                                <span class="chat-status">Online</span>
+                            </div>
+                        </div>
+                        <button class="icon-btn tiny" onclick="toggleChatWidget('ai-tutor-chat-focus')"><i data-feather="minus"></i></button>
+                    </div>
+                    <div class="chat-messages" id="chat-messages-focus">
+                        <div class="chat-msg bot">
+                            <p>Great focus session! I'm here if you need help with anything while studying.</p>
+                        </div>
+                    </div>
+                    <form class="chat-input-area" onsubmit="sendChatMessage(event, 'focus')">
+                        <input type="text" id="chat-input-focus" placeholder="Ask a question..." autocomplete="off">
+                        <button type="submit" class="chat-send-btn"><i data-feather="send"></i></button>
+                    </form>
+                </div>
+                <button class="chat-fab" onclick="toggleChatWidget('ai-tutor-chat-focus')">
+                    <i data-feather="message-circle"></i>
+                </button>
             </div>
         </section>
 
@@ -296,7 +372,7 @@
                     <div>
                         <h2>Time for a Quick Challenge?</h2>
                         <p>Boost your energy with a 2-minute quiz!</p>
-                        <button class="text-btn mt-2" onclick="ignoreEmotion()">No thanks, resume reading</button>
+                        <button class="text-btn mt-2" onclick="ignoreEmotion(false)">No thanks, resume reading</button>
                     </div>
                     <div class="xp-stats">
                         <div class="streak">
@@ -325,10 +401,10 @@
                         <h3>What is the primary difference between a CNN and a standard MLP?</h3>
                         
                         <div class="quiz-options mt-3">
-                            <button class="quiz-option" onclick="selectQuizOption(this)">MLPs use pooling layers while CNNs don't <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this)">CNNs maintain spatial hierarchy of data <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this)">CNNs are only for text processing <div class="radio"></div></button>
-                            <button class="quiz-option" onclick="selectQuizOption(this)">MLPs are faster but less accurate <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this, false)">MLPs use pooling layers while CNNs don't <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this, true)">CNNs maintain spatial hierarchy of data <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this, false)">CNNs are only for text processing <div class="radio"></div></button>
+                            <button class="quiz-option" onclick="selectQuizOption(this, false)">MLPs are faster but less accurate <div class="radio"></div></button>
                         </div>
                     </div>
                     
@@ -413,6 +489,22 @@
                     <p>Control how Mindset interacts with you and your data.</p>
                 </div>
                 
+                <div class="settings-group card mb-4">
+                    <div class="settings-title"><i data-feather="layout" class="primary-text"></i> Appearance</div>
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <h4>App Theme</h4>
+                            <p>Choose your preferred color scheme.</p>
+                        </div>
+                        <select id="theme-selector" class="outline-btn" onchange="setTheme(this.value)">
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                            <option value="sepia">Sepia</option>
+                            <option value="ocean">Ocean</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="settings-group card mb-4">
                     <div class="settings-title"><i data-feather="eye" class="primary-text"></i> Emotion Detection</div>
                     
